@@ -1,0 +1,57 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Canvas Flower Example</title>
+    <style>
+        body {
+            margin: 0;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+            background-color: #f0f0f0;
+        }
+        canvas {
+            border: 1px solid #ccc;
+            background-color: #fff;
+        }
+    </style>
+</head>
+<body>
+
+<canvas id="flowerCanvas" width="400" height="400"></canvas>
+
+<script>
+    const canvas = document.getElementById('flowerCanvas');
+    const ctx = canvas.getContext('2d');
+
+    function drawFlower(x, y, petalCount, petalRadius, centerRadius) {
+        const angleStep = (2 * Math.PI) / petalCount;
+
+        // Draw petals
+        ctx.fillStyle = '#ff69b4'; // pink petals
+        for (let i = 0; i < petalCount; i++) {
+            const angle = i * angleStep;
+            const petalX = x + Math.cos(angle) * petalRadius;
+            const petalY = y + Math.sin(angle) * petalRadius;
+
+            ctx.beginPath();
+            ctx.ellipse(petalX, petalY, petalRadius, petalRadius / 2, angle, 0, 2 * Math.PI);
+            ctx.fill();
+        }
+
+        // Draw center
+        ctx.beginPath();
+        ctx.arc(x, y, centerRadius, 0, 2 * Math.PI);
+        ctx.fillStyle = '#ffd700'; // yellow center
+        ctx.fill();
+    }
+
+    // Draw flower at center of canvas
+    drawFlower(canvas.width / 2, canvas.height / 2, 8, 50, 20);
+</script>
+
+</body>
+</html>
