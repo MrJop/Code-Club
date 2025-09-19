@@ -1,0 +1,62 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Canvas Tree Example</title>
+    <style>
+        body {
+            margin: 0;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+            background-color: #f0f0f0;
+        }
+        canvas {
+            border: 1px solid #ccc;
+            background-color: #fff;
+        }
+    </style>
+</head>
+<body>
+
+<canvas id="treeCanvas" width="600" height="400"></canvas>
+
+<script>
+    const canvas = document.getElementById('treeCanvas');
+    const ctx = canvas.getContext('2d');
+
+    function drawBranch(x, y, length, angle, depth) {
+        if (depth === 0) return;
+
+        // Calculate the end coordinates of the branch
+        const xEnd = x + length * Math.cos(angle);
+        const yEnd = y + length * Math.sin(angle); // canvas y increases downward
+
+        // Draw the branch
+        ctx.beginPath();
+        ctx.moveTo(x, y);
+        ctx.lineTo(xEnd, yEnd);
+        ctx.stroke();
+
+        // Reduce length and depth for the next branches
+        const newLength = length * 0.7;
+        const newDepth = depth - 1;
+
+        // Branch angles
+        const angleSpread = Math.PI / 6; // 30 degrees
+        drawBranch(xEnd, yEnd, newLength, angle - angleSpread, newDepth);
+        drawBranch(xEnd, yEnd, newLength, angle + angleSpread, newDepth);
+    }
+
+    // Set line style
+    ctx.strokeStyle = '#3a2';
+    ctx.lineWidth = 2;
+
+    // Start drawing tree from bottom center, going upwards
+    drawBranch(canvas.width / 2, canvas.height, 100, -Math.PI / 2, 6);
+</script>
+
+</body>
+</html>
