@@ -37,7 +37,7 @@
         return `rgb(${r},${g},${b})`;
     }
 
-    function drawBranch(x, y, length, angle, depth, maxDepth) {
+    function drawBranch(x, y, length, angle, depth, maxDepth, treeWidth) {
         if (depth === 0) return;
 
         const xEnd = x + length * Math.cos(angle);
@@ -46,33 +46,63 @@
         // Set stroke color based on depth
         const t = (maxDepth - depth) / maxDepth; // 0 at trunk, 1 at tips
         ctx.strokeStyle = lerpColor("rgb(139,69,19)", "rgb(34,139,34)", t); // brown to green
-        ctx.lineWidth = depth*2; // optional: thinner branches at tips
+        ctx.lineWidth = treeWidth; // optional: thinner branches at tips
 
         ctx.beginPath();
         ctx.moveTo(x, y);
         ctx.lineTo(xEnd, yEnd);
         ctx.stroke();
 
-        let lengthReduction = 0.5 + (Math.random()*0.5);
+        let lengthReduction = 0.4 + (Math.random()*0.6);
         const newLength = length * lengthReduction;
         const newDepth = depth - 1;
         let angleSpread = Math.PI * (0.05 + (Math.random()*0.2));
 
-        drawBranch(xEnd, yEnd, newLength, angle - angleSpread, newDepth, maxDepth);
+        if(depth < 3){
+            drawLeaf(ctx, x, y, Math.PI * Math.random(), 15);
+            drawLeaf(ctx, x, y, Math.PI * Math.random(), 15);
+        }
 
+        var newBranchWidth = treeWidth * (0.5 + (Math.random()*0.4));
+        drawBranch(xEnd, yEnd, newLength, angle - angleSpread, newDepth, maxDepth, newBranchWidth);
+
+        newBranchWidth = treeWidth * (0.5 + (Math.random()*0.4));
         angleSpread = Math.PI * (0.05 + (Math.random()*0.2));
-        drawBranch(xEnd, yEnd, newLength, angle + angleSpread, newDepth, maxDepth);
+        drawBranch(xEnd, yEnd, newLength, angle + angleSpread, newDepth, maxDepth, newBranchWidth);
+    }
+
+    function drawLeaf(ctx, x, y, angle, size = 10) {
+        ctx.save(); // Save current canvas state
+        ctx.translate(x, y); // Move to leaf position
+        ctx.rotate(angle);   // Rotate leaf to match branch
+        ctx.beginPath();
+
+        // Draw a simple elliptical leaf
+        ctx.moveTo(0, 0);
+        ctx.quadraticCurveTo(size / 2, -size / 2, size, 0);  // Right side
+        ctx.quadraticCurveTo(size / 2, size / 2, 0, 0);       // Left side
+
+        // Random green color
+        const r = Math.floor(Math.random() * 50);
+        const g = Math.floor(Math.random() * 100 + 100);
+        const b = Math.floor(Math.random() * 50);
+        ctx.fillStyle = `rgb(${r},${g},${b})`;
+
+        ctx.fill();
+        ctx.restore(); // Restore canvas state
     }
 
     // Start drawing trees
-    const amountOfTrees = Math.ceil(Math.random() * 4) + 6;
+    const amountOfTrees = Math.ceil(Math.random() * 8) + 4;
     let treeOriginX = canvas.width / (amountOfTrees+1);
 
     for(var i = 0; i < amountOfTrees; i++) {
         let baseLength = 80 + (Math.random()*50);
         let maxDepth = 5 + Math.floor(Math.random() * 3);
         treeOriginX*=(Math.random()*0.2)+0.9;
-        drawBranch(treeOriginX*(i+1), canvas.height, baseLength, -Math.PI / 2, maxDepth, maxDepth);
+
+        let treeWidth = 8 + (Math.random()*8);
+        drawBranch(treeOriginX*(i+1), canvas.height, baseLength, -Math.PI / 2, maxDepth, maxDepth, treeWidth);
     }
 
 
@@ -105,13 +135,30 @@
         ctx.lineTo(endPointX, endPointY);
         ctx.stroke();
         //
+
+        ctx.fillStyle = randomWarmColor();
+        const petalCount = Math.floor(Math.random()*2)+5;
+        const angleStep = (2 * Math.PI) / petalCount;
+        const petalRadius = 4;
+        for (let i = 0; i < petalCount; i++) {
+            const angle = i * angleStep;
+            const petalX = endPointX + Math.cos(angle) * petalRadius;
+            const petalY = endPointY + Math.sin(angle) * petalRadius;
+
+            ctx.beginPath();
+            ctx.ellipse(petalX, petalY, petalRadius, petalRadius / 2, angle, 0, 2 * Math.PI);
+            ctx.fill();
+        }
+
+
+        //
         centerRadius = 3;
         ctx.beginPath();
         ctx.arc(endPointX, endPointY, centerRadius, 0, 2 * Math.PI);
-        ctx.fillStyle = randomWarmColor();
+        ctx.fillStyle = '#ddd520';
         ctx.fill();
     }
-    var amountOfFlowers = Math.ceil(Math.random() * 100) + 100;
+    var amountOfFlowers = Math.ceil(Math.random() * 100) + 30;
     let flowerOriginXStep = canvas.width / (amountOfFlowers+1);
     let flowerOriginX = 0;
     for(var i = 0; i < amountOfFlowers; i++) {
