@@ -46,7 +46,7 @@
         // Set stroke color based on depth
         const t = (maxDepth - depth) / maxDepth; // 0 at trunk, 1 at tips
         ctx.strokeStyle = lerpColor("rgb(139,69,19)", "rgb(34,139,34)", t); // brown to green
-        ctx.lineWidth = depth; // optional: thinner branches at tips
+        ctx.lineWidth = depth*2; // optional: thinner branches at tips
 
         ctx.beginPath();
         ctx.moveTo(x, y);
@@ -77,19 +77,46 @@
 
 
 
+    function randomWarmColor() {
+        const colorRanges = [
+            { r: [200, 255], g: [100, 200], b: [0, 50] },   // Orange
+            { r: [200, 255], g: [200, 255], b: [0, 100] },  // Yellow
+            { r: [150, 200], g: [0, 100], b: [150, 255] },  // Purple
+            { r: [200, 255], g: [0, 100], b: [0, 50] }      // Red
+        ];
+
+        // Pick a random color family
+        const range = colorRanges[Math.floor(Math.random() * colorRanges.length)];
+
+        // Pick random RGB within the selected range
+        const r = Math.floor(Math.random() * (range.r[1] - range.r[0] + 1)) + range.r[0];
+        const g = Math.floor(Math.random() * (range.g[1] - range.g[0] + 1)) + range.g[0];
+        const b = Math.floor(Math.random() * (range.b[1] - range.b[0] + 1)) + range.b[0];
+        return `rgb(${r},${g},${b})`;
+    }
 
     function drawFlower(x,y){
-        ctx.strokeStyle = '#00ff00';
+        ctx.strokeStyle = '#3aaa36';
         ctx.beginPath();
         ctx.moveTo(x, y);
-        ctx.lineTo(x + ((Math.random()-0.5)*10), y - 30 + ((Math.random()-0.5)*10));
+
+        const endPointX = x + ((Math.random()-0.5)*10);
+        const endPointY = y - 20 - (Math.random()*30);
+        ctx.lineTo(endPointX, endPointY);
         ctx.stroke();
+        //
+        centerRadius = 3;
+        ctx.beginPath();
+        ctx.arc(endPointX, endPointY, centerRadius, 0, 2 * Math.PI);
+        ctx.fillStyle = randomWarmColor();
+        ctx.fill();
     }
     var amountOfFlowers = Math.ceil(Math.random() * 100) + 100;
-    let flowerOriginX = canvas.width / (amountOfFlowers+1);
+    let flowerOriginXStep = canvas.width / (amountOfFlowers+1);
+    let flowerOriginX = 0;
     for(var i = 0; i < amountOfFlowers; i++) {
-        flowerOriginX*=(Math.random()*0.1)+0.95;
-        drawFlower(flowerOriginX*(i+1), canvas.height);
+        flowerOriginX += flowerOriginXStep * ((Math.random()*0.3)+0.85);
+        drawFlower(flowerOriginX, canvas.height);
     }
 </script>
 
