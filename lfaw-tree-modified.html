@@ -1,0 +1,97 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Animated Tree Color</title>
+    <style>
+        body {
+            margin: 0;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+            background-color: #f0f0f0;
+        }
+        canvas {
+            border: 1px solid #ccc;
+            background-color: #fff;
+        }
+    </style>
+</head>
+<body>
+
+<canvas id="treeCanvas" width="600" height="400"></canvas>
+
+<script>
+    const canvas = document.getElementById('treeCanvas');
+    const ctx = canvas.getContext('2d');
+
+    // Function to interpolate between two colors
+    function lerpColor(color1, color2, t) {
+        const c1 = color1.match(/\d+/g).map(Number);
+        const c2 = color2.match(/\d+/g).map(Number);
+        const r = Math.round(c1[0] + (c2[0] - c1[0]) * t);
+        const g = Math.round(c1[1] + (c2[1] - c1[1]) * t);
+        const b = Math.round(c1[2] + (c2[2] - c1[2]) * t);
+        return `rgb(${r},${g},${b})`;
+    }
+
+    function drawBranch(x, y, length, angle, depth, maxDepth) {
+        if (depth === 0) return;
+
+        const xEnd = x + length * Math.cos(angle);
+        const yEnd = y + length * Math.sin(angle);
+
+        // Set stroke color based on depth
+        const t = (maxDepth - depth) / maxDepth; // 0 at trunk, 1 at tips
+        ctx.strokeStyle = lerpColor("rgb(139,69,19)", "rgb(34,139,34)", t); // brown to green
+        ctx.lineWidth = depth; // optional: thinner branches at tips
+
+        ctx.beginPath();
+        ctx.moveTo(x, y);
+        ctx.lineTo(xEnd, yEnd);
+        ctx.stroke();
+
+        let lengthReduction = 0.5 + (Math.random()*0.5);
+        const newLength = length * lengthReduction;
+        const newDepth = depth - 1;
+        let angleSpread = Math.PI * (0.05 + (Math.random()*0.2));
+
+        drawBranch(xEnd, yEnd, newLength, angle - angleSpread, newDepth, maxDepth);
+
+        angleSpread = Math.PI * (0.05 + (Math.random()*0.2));
+        drawBranch(xEnd, yEnd, newLength, angle + angleSpread, newDepth, maxDepth);
+    }
+
+    // Start drawing trees
+    const amountOfTrees = Math.ceil(Math.random() * 4) + 6;
+    let treeOriginX = canvas.width / (amountOfTrees+1);
+
+    for(var i = 0; i < amountOfTrees; i++) {
+        let baseLength = 80 + (Math.random()*50);
+        let maxDepth = 5 + Math.floor(Math.random() * 3);
+        treeOriginX*=(Math.random()*0.2)+0.9;
+        drawBranch(treeOriginX*(i+1), canvas.height, baseLength, -Math.PI / 2, maxDepth, maxDepth);
+    }
+
+
+
+
+    function drawFlower(x,y){
+        ctx.strokeStyle = '#00ff00';
+        ctx.beginPath();
+        ctx.moveTo(x, y);
+        ctx.lineTo(x + ((Math.random()-0.5)*10), y - 30 + ((Math.random()-0.5)*10));
+        ctx.stroke();
+    }
+    var amountOfFlowers = Math.ceil(Math.random() * 100) + 100;
+    let flowerOriginX = canvas.width / (amountOfFlowers+1);
+    for(var i = 0; i < amountOfFlowers; i++) {
+        flowerOriginX*=(Math.random()*0.1)+0.95;
+        drawFlower(flowerOriginX*(i+1), canvas.height);
+    }
+</script>
+
+</body>
+</html>
