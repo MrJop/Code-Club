@@ -58,9 +58,11 @@
         const newDepth = depth - 1;
         let angleSpread = Math.PI * (0.05 + (Math.random()*0.2));
 
-        if(depth < 3){
-            drawLeaf(ctx, x, y, Math.PI * Math.random(), 15);
-            drawLeaf(ctx, x, y, Math.PI * Math.random(), 15);
+        if(depth < 5){
+            var amountOfLeaves = Math.ceil(Math.random() * 20);
+            for(var l=0;l<amountOfLeaves;l++) {
+                drawLeaf(ctx, x + (Math.random()*(xEnd-x)), y + (Math.random()*(yEnd-y)), Math.PI * Math.random(), 15);
+            }
         }
 
         var newBranchWidth = treeWidth * (0.5 + (Math.random()*0.4));
