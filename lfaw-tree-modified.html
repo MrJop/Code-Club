@@ -5,27 +5,43 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Animated Tree Color</title>
     <style>
-        body {
+        html, body {
             margin: 0;
-            display: flex;
-            justify-content: center;
-            align-items: center;
-            height: 100vh;
-            background-color: #f0f0f0;
+            padding: 0;
+            overflow: hidden; /* avoid scrollbars */
+            height: 100%;
+            width: 100%;
         }
         canvas {
-            border: 1px solid #ccc;
-            background-color: #fff;
+            display: block; /* remove inline gap */
         }
     </style>
 </head>
 <body>
 
-<canvas id="treeCanvas" width="600" height="400"></canvas>
+<canvas id="treeCanvas"></canvas>
 
 <script>
     const canvas = document.getElementById('treeCanvas');
     const ctx = canvas.getContext('2d');
+
+    function clearCanvas() {
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+    }
+
+    // Function to resize canvas to full window
+    function resizeCanvas() {
+        canvas.width = window.innerWidth;
+        canvas.height = window.innerHeight;
+
+        // Clear the canvas after resizing
+        clearCanvas();
+        this.drawScene();
+    }
+
+    // Resize initially and whenever window is resized
+    window.addEventListener("resize", resizeCanvas);
+    resizeCanvas();
 
     // Function to interpolate between two colors
     function lerpColor(color1, color2, t) {
@@ -94,21 +110,6 @@
         ctx.restore(); // Restore canvas state
     }
 
-    // Start drawing trees
-    const amountOfTrees = Math.ceil(Math.random() * 8) + 4;
-    let treeOriginX = canvas.width / (amountOfTrees+1);
-
-    for(var i = 0; i < amountOfTrees; i++) {
-        let baseLength = 80 + (Math.random()*50);
-        let maxDepth = 5 + Math.floor(Math.random() * 3);
-        treeOriginX*=(Math.random()*0.2)+0.9;
-
-        let treeWidth = 8 + (Math.random()*8);
-        drawBranch(treeOriginX*(i+1), canvas.height, baseLength, -Math.PI / 2, maxDepth, maxDepth, treeWidth);
-    }
-
-
-
     function randomWarmColor() {
         const colorRanges = [
             { r: [200, 255], g: [100, 200], b: [0, 50] },   // Orange
@@ -160,12 +161,82 @@
         ctx.fillStyle = '#ddd520';
         ctx.fill();
     }
-    var amountOfFlowers = Math.ceil(Math.random() * 100) + 30;
-    let flowerOriginXStep = canvas.width / (amountOfFlowers+1);
-    let flowerOriginX = 0;
-    for(var i = 0; i < amountOfFlowers; i++) {
-        flowerOriginX += flowerOriginXStep * ((Math.random()*0.3)+0.85);
-        drawFlower(flowerOriginX, canvas.height);
+
+
+    function drawGround() {
+        const groundHeight = canvas.height * (0.25 + (Math.random()*0.1)); // Base height
+        const variation = 20 + (Math.floor(Math.random() * 10)); // How "bumpy" the ground is
+        const step = 40 + (Math.floor(Math.random() * 30)); // Horizontal distance between bumps
+
+        ctx.beginPath();
+        ctx.moveTo(0, canvas.height - groundHeight);
+
+        // Create a wavy line
+        for (let x = 0; x <= canvas.width+100; x += step) {
+            const y = canvas.height - groundHeight + Math.sin(x * 0.02) * variation;
+            ctx.lineTo(x, y);
+        }
+
+        // Close shape (down to bottom of canvas, across, and back up)
+        ctx.lineTo(canvas.width, canvas.height);
+        ctx.lineTo(0, canvas.height);
+        ctx.closePath();
+
+        // Fill ground with a nice earthy green
+        ctx.fillStyle = "#3b7a3a";
+        ctx.fill();
+    }
+
+
+    function drawScene() {
+        // Draw background
+        ctx.fillStyle = "#87ceeb"; // sky blue
+        ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+        // Draw ground
+        drawGround();
+
+        //drawing trees every 40 ish pixels
+        let treeTarget = canvas.width / 40;
+        const amountOfTrees = Math.ceil( ((Math.random() - 0.25) + 0.5) * treeTarget);
+        let treeOriginX = canvas.width / (amountOfTrees+1);
+
+        for(var i = 0; i < amountOfTrees; i++) {
+            let baseLength = 80 + (Math.random()*50);
+            let maxDepth = 5 + Math.floor(Math.random() * 5);
+            treeOriginX*=(Math.random()*0.2)+0.9;
+
+            let treeWidth = 8 + (Math.random()*8);
+            var treePosition = {x:treeOriginX*(Math.random()*amountOfTrees), y:canvas.height * (0.9 + ((i/amountOfTrees)*0.15))}
+            drawBranch(treePosition.x, treePosition.y, baseLength, -Math.PI / 2, maxDepth, maxDepth, treeWidth);
+            //
+
+            // Gradient (top to bottom of ellipse)
+            var ellipseRadiusHor = treeWidth*0.6;
+            var ellipseRadiusVer = treeWidth * 0.3;
+            const gradient = ctx.createLinearGradient(
+                treePosition.x, treePosition.y - ellipseRadiusVer,
+                treePosition.x, treePosition.y + ellipseRadiusVer
+            );
+            gradient.addColorStop(0, "rgb(139,69,19)");
+            gradient.addColorStop(1, "#3b7a3a");
+
+            ctx.beginPath();
+            ctx.ellipse(treePosition.x, treePosition.y, ellipseRadiusHor, ellipseRadiusVer, 0, 0, Math.PI * 2);
+            ctx.fillStyle = gradient;
+            ctx.fill();
+        }
+
+        //drawing trees every 5 ish pixels
+        let florwerTarget = canvas.width / 5;
+        const amountOfFlowers = Math.ceil( ((Math.random() - 0.25) + 0.5) * florwerTarget);
+
+        let flowerOriginXStep = canvas.width / (amountOfFlowers+1);
+        let flowerOriginX = 0;
+        for(var i = 0; i < amountOfFlowers; i++) {
+            flowerOriginX += flowerOriginXStep * ((Math.random()*0.3)+0.85);
+            drawFlower(flowerOriginX, canvas.height);
+        }
     }
 </script>
 
