@@ -3,156 +3,108 @@
 <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width,initial-scale=1" />
-    <title>Autonomous Circles with Interactions</title>
+    <title>Canvas Creatures with Glow & Trails</title>
     <style>
         html,body {
-            height:100%; margin:0;
+            margin:0;
+            height:100%;
             background:#000;
-            font-family:sans-serif;
+            display:flex;
+            justify-content:center;
+            align-items:center;
         }
-        .stage {
-            position:relative;
-            width:min(1100px,94vw);
-            height:70vh;
-            margin:40px auto;
+        canvas {
             background:#000;
-            border-radius:14px;
-            overflow:hidden;
             border:1px solid rgba(255,255,255,0.2);
-        }
-        .creature {
-            position:absolute;
-            width:12px;
-            height:12px;
-            border-radius:50%;
-            background:#000;
-            transition: background 0.4s linear, transform 0.2s ease-out;
-        }
-        .pulse {
-            transform: scale(1.15);
-        }
-        @keyframes flicker {
-            0%, 100% { background: #ffffff; }
-            50% { background: #00ff00; }
-        }
-        .flicker {
-            animation: flicker 0.3s infinite;
+            border-radius:14px;
+            display:block;
         }
     </style>
 </head>
 <body>
-<div class="stage" id="stage"></div>
+<canvas id="stage" width="1100" height="600"></canvas>
 
 <script>
-    const stage = document.getElementById('stage');
-    const numCreatures = 50;
-    const creatures = [];
-    const triggerDistance = 40;
+    const canvas = document.getElementById('stage');
+    const ctx = canvas.getContext('2d');
 
-    // Colors through yellow spectrum to white
-    const colors = [
-        "#000000", // black
-        "#550000", // dark red
-        "#aa2200", // red/orange
-        "#ff6600", // orange
-        "#ffaa00", // yellow-orange
-        "#ffff00", // yellow
-        "#ffff88", // pale yellow
-        "#ffffff"  // white
+    const numCreatures = 50;
+    const triggerDistance = 40;
+    const radius = 6;
+
+    const colorSteps = [
+        [0,0,0],       // black
+        [85,0,0],      // dark red
+        [170,34,0],    // red/orange
+        [255,102,0],   // orange
+        [255,170,0],   // yellow-orange
+        [255,255,0],   // yellow
+        [255,255,136], // pale yellow
+        [255,255,255]  // white
     ];
 
-    const activePairs = new Set();
+    function rgbString([r,g,b], alpha=1) {
+        return `rgba(${r},${g},${b},${alpha})`;
+    }
 
-    function createCreature(){
-        const el = document.createElement('div');
-        el.className = 'creature';
-        stage.appendChild(el);
-        const r = stage.getBoundingClientRect();
+    function lerpColor(a,b,t) {
+        return [
+            Math.round(a[0] + (b[0]-a[0])*t),
+            Math.round(a[1] + (b[1]-a[1])*t),
+            Math.round(a[2] + (b[2]-a[2])*t)
+        ];
+    }
+
+    function brighten([r,g,b], factor=1.3) {
+        return [
+            Math.min(255, Math.round(r*factor)),
+            Math.min(255, Math.round(g*factor)),
+            Math.min(255, Math.round(b*factor))
+        ];
+    }
+
+    function createCreature() {
         return {
-            el,
-            x: Math.random()*r.width,
-            y: Math.random()*r.height,
+            x: Math.random()*canvas.width,
+            y: Math.random()*canvas.height,
             vx: (Math.random()*2-1) * 50,
             vy: (Math.random()*2-1) * 50,
             interactions: 0,
-            dead: false,
-            falling: false
+            color: [0,0,0],
+            targetColor: [0,0,0],
+            colorProgress: 1,
+            pulse: 0,
+            falling: false,
+            vyFall: 0,
+            flickerTimer: 0,
+            deadOnFloor: false,
+            fade: 1 // opacity while fading
         };
     }
 
-    function spawnNewCreature(){
-        const c = createCreature();
-        creatures.push(c);
-    }
-
-    for (let i=0;i<numCreatures;i++){
+    const creatures = [];
+    for (let i=0; i<numCreatures; i++) {
         creatures.push(createCreature());
     }
 
-    function updateCreature(c,dt){
-        if (c.dead) return;
-
-        if (c.falling){
-            c.vx = 0; // no horizontal
-            c.vy += 300 * dt; // gravity
-            c.y += c.vy * dt;
-            const r = stage.getBoundingClientRect();
-            const bottom = r.height - 6;
-            if (c.y >= bottom){
-                // remove from DOM
-                stage.removeChild(c.el);
-                c.dead = true;
-                spawnNewCreature();
-            }
-            c.el.style.transform = `translate(${c.x-6}px,${c.y-6}px)`;
-            return;
-        }
-
-        // normal wandering
-        c.x += c.vx*dt;
-        c.y += c.vy*dt;
-        const r = stage.getBoundingClientRect();
-        const radius = 6;
-        if (c.x < radius){ c.x = radius; c.vx = Math.abs(c.vx); }
-        if (c.x > r.width-radius){ c.x = r.width-radius; c.vx = -Math.abs(c.vx); }
-        if (c.y < radius){ c.y = radius; c.vy = Math.abs(c.vy); }
-        if (c.y > r.height-radius){ c.y = r.height-radius; c.vy = -Math.abs(c.vy); }
-
-        const colorIndex = Math.min(c.interactions, colors.length-1);
-        if (colorIndex < colors.length-1){
-            c.el.style.background = colors[colorIndex];
-        } else {
-            // reached white → start flicker & fall
-            c.el.classList.add("flicker");
-            c.falling = true;
-            c.vy = 50; // initial downward velocity
-        }
-        c.el.style.transform = `translate(${c.x-radius}px,${c.y-radius}px) scale(1)`;
-    }
-
+    const activePairs = new Set();
     function pairKey(i,j){ return i<j ? `${i}-${j}` : `${j}-${i}`; }
 
-    function triggerPulse(c){
-        c.el.classList.add("pulse");
-        setTimeout(()=> c.el.classList.remove("pulse"), 150);
-    }
-
-    function checkInteractions(){
-        for (let i=0; i<creatures.length; i++){
-            for (let j=i+1; j<creatures.length; j++){
+    function checkInteractions() {
+        for (let i=0;i<creatures.length;i++){
+            for (let j=i+1;j<creatures.length;j++){
                 const a = creatures[i], b = creatures[j];
-                if (a.dead || b.dead || a.falling || b.falling) continue;
-                const dx = a.x - b.x;
-                const dy = a.y - b.y;
-                const dist = Math.sqrt(dx*dx + dy*dy);
+                if (a.falling || b.falling || a.deadOnFloor || b.deadOnFloor) continue;
+                const dx = a.x-b.x, dy=a.y-b.y;
+                const dist = Math.sqrt(dx*dx+dy*dy);
                 const key = pairKey(i,j);
-                if (dist < triggerDistance){
+                if (dist<triggerDistance){
                     if (!activePairs.has(key)){
                         activePairs.add(key);
                         a.interactions++;
                         b.interactions++;
-                        triggerPulse(a);
-                        triggerPulse(b);
+                        triggerInteraction(a);
+                        triggerInteraction(b);
                     }
                 } else {
                     activePairs.delete(key);
@@ -161,16 +113,99 @@
         }
     }
 
-    let last = performance.now();
-    function loop(now){
-        const dt = (now-last)/1000; last = now;
-        for (const c of creatures){
-            updateCreature(c,dt);
+    function triggerInteraction(c){
+        const index = Math.min(c.interactions, colorSteps.length-1);
+        c.color = c.targetColor;
+        c.targetColor = colorSteps[index];
+        c.colorProgress = 0;
+        c.pulse = 1;
+        if (index === colorSteps.length-1 && !c.falling){
+            c.falling = true;
+            c.vx = 0;
+            c.vyFall = 50;
         }
-        checkInteractions();
-        requestAnimationFrame(loop);
     }
 
+    function update(dt){
+        for (const c of creatures){
+            if (c.deadOnFloor){
+                c.fade -= dt*0.2;
+                if (c.fade <= 0){
+                    Object.assign(c, createCreature());
+                }
+                continue;
+            }
+
+            if (c.falling){
+                c.vyFall += 300*dt;
+                c.y += c.vyFall*dt;
+                if (c.y >= canvas.height-radius){
+                    c.y = canvas.height-radius;
+                    c.falling = false;
+                    c.deadOnFloor = true;
+                    c.fade = 1;
+                }
+            } else {
+                c.x += c.vx*dt;
+                c.y += c.vy*dt;
+                if (c.x<radius){c.x=radius;c.vx=Math.abs(c.vx);}
+                if (c.x>canvas.width-radius){c.x=canvas.width-radius;c.vx=-Math.abs(c.vx);}
+                if (c.y<radius){c.y=radius;c.vy=Math.abs(c.vy);}
+                if (c.y>canvas.height-radius){c.y=canvas.height-radius;c.vy=-Math.abs(c.vy);}
+            }
+
+            if (c.colorProgress<1){
+                c.colorProgress = Math.min(1,c.colorProgress+dt*2.5);
+            }
+
+            if (c.pulse>0){
+                c.pulse = Math.max(0,c.pulse - dt*5);
+            }
+        }
+    }
+
+    function draw(){
+        // Fade overlay for trails
+        ctx.fillStyle = "rgba(0,0,0,0.2)";
+        ctx.fillRect(0,0,canvas.width,canvas.height);
+
+        for (const c of creatures){
+            let col = c.color;
+            if (c.colorProgress<1){
+                col = lerpColor(c.color,c.targetColor,c.colorProgress);
+            } else {
+                col = c.targetColor;
+            }
+
+            if (c.falling && c.interactions >= colorSteps.length-1){
+                c.flickerTimer += 1;
+                if ((c.flickerTimer>>2)%2===0) col=[255,255,255];
+                else col=[0,255,0];
+            }
+
+            const scale = 1 + 0.15*c.pulse;
+            const glowCol = brighten(col,1.5);
+
+            ctx.beginPath();
+            ctx.arc(c.x,c.y,radius*scale,0,Math.PI*2);
+
+            ctx.shadowBlur = 10;
+            ctx.shadowColor = rgbString(glowCol, c.fade);
+            ctx.fillStyle = rgbString(col, c.fade);
+            ctx.fill();
+
+            ctx.shadowBlur = 0; // reset
+        }
+    }
+
+    let last=performance.now();
+    function loop(now){
+        const dt=(now-last)/1000; last=now;
+        update(dt);
+        checkInteractions();
+        draw();
+        requestAnimationFrame(loop);
+    }
     requestAnimationFrame(loop);
 </script>
 </body>
