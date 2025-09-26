@@ -7,7 +7,7 @@
     <style>
         html,body {
             height:100%; margin:0;
-            background:#000; /* black background */
+            background:#000;
             font-family:sans-serif;
         }
         .stage {
@@ -25,11 +25,18 @@
             width:12px;
             height:12px;
             border-radius:50%;
-            background:#000; /* start black */
+            background:#000;
             transition: background 0.4s linear, transform 0.2s ease-out;
         }
         .pulse {
             transform: scale(1.15);
+        }
+        @keyframes flicker {
+            0%, 100% { background: #ffffff; }
+            50% { background: #00ff00; }
+        }
+        .flicker {
+            animation: flicker 0.3s infinite;
         }
     </style>
 </head>
@@ -54,7 +61,6 @@
         "#ffffff"  // white
     ];
 
-    // track active interactions between pairs
     const activePairs = new Set();
 
     function createCreature(){
@@ -68,8 +74,15 @@
             y: Math.random()*r.height,
             vx: (Math.random()*2-1) * 50,
             vy: (Math.random()*2-1) * 50,
-            interactions: 0
+            interactions: 0,
+            dead: false,
+            falling: false
         };
+    }
+
+    function spawnNewCreature(){
+        const c = createCreature();
+        creatures.push(c);
     }
 
     for (let i=0;i<numCreatures;i++){
@@ -77,6 +90,25 @@
     }
 
     function updateCreature(c,dt){
+        if (c.dead) return;
+
+        if (c.falling){
+            c.vx = 0; // no horizontal
+            c.vy += 300 * dt; // gravity
+            c.y += c.vy * dt;
+            const r = stage.getBoundingClientRect();
+            const bottom = r.height - 6;
+            if (c.y >= bottom){
+                // remove from DOM
+                stage.removeChild(c.el);
+                c.dead = true;
+                spawnNewCreature();
+            }
+            c.el.style.transform = `translate(${c.x-6}px,${c.y-6}px)`;
+            return;
+        }
+
+        // normal wandering
         c.x += c.vx*dt;
         c.y += c.vy*dt;
         const r = stage.getBoundingClientRect();
@@ -85,9 +117,17 @@
         if (c.x > r.width-radius){ c.x = r.width-radius; c.vx = -Math.abs(c.vx); }
         if (c.y < radius){ c.y = radius; c.vy = Math.abs(c.vy); }
         if (c.y > r.height-radius){ c.y = r.height-radius; c.vy = -Math.abs(c.vy); }
+
         const colorIndex = Math.min(c.interactions, colors.length-1);
-        c.el.style.background = colors[colorIndex];
-        c.el.style.transform = `translate(${c.x-radius}px,${c.y-radius}px) scale(1)`; // base scale
+        if (colorIndex < colors.length-1){
+            c.el.style.background = colors[colorIndex];
+        } else {
+            // reached white → start flicker & fall
+            c.el.classList.add("flicker");
+            c.falling = true;
+            c.vy = 50; // initial downward velocity
+        }
+        c.el.style.transform = `translate(${c.x-radius}px,${c.y-radius}px) scale(1)`;
     }
 
     function pairKey(i,j){ return i<j ? `${i}-${j}` : `${j}-${i}`; }
@@ -101,6 +141,7 @@
         for (let i=0; i<creatures.length; i++){
             for (let j=i+1; j<creatures.length; j++){
                 const a = creatures[i], b = creatures[j];
+                if (a.dead || b.dead || a.falling || b.falling) continue;
                 const dx = a.x - b.x;
                 const dy = a.y - b.y;
                 const dist = Math.sqrt(dx*dx + dy*dy);
