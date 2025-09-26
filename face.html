@@ -1,0 +1,118 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Kaleidoscope</title>
+    <style>
+        body {
+            margin: 0;
+            overflow: hidden;
+            background: black;
+        }
+        #drawCanvas {
+            position: fixed;
+            top: 10px;
+            left: 10px;
+            width: 500px;
+            height: 500px;
+            border: 1px solid white;
+            image-rendering: pixelated;
+            cursor: crosshair;
+            z-index: 10;
+        }
+        #kaleidoscopeCanvas {
+            position: absolute;
+            top: 0;
+            left: 0;
+        }
+    </style>
+</head>
+<body>
+
+<canvas id="drawCanvas" width="500" height="500"></canvas>
+<canvas id="kaleidoscopeCanvas"></canvas>
+
+<script>
+    const drawCanvas = document.getElementById('drawCanvas');
+    const drawCtx = drawCanvas.getContext('2d');
+
+    const kaleidoscopeCanvas = document.getElementById('kaleidoscopeCanvas');
+    const kaleidoscopeCtx = kaleidoscopeCanvas.getContext('2d');
+
+    let width = window.innerWidth;
+    let height = window.innerHeight;
+    kaleidoscopeCanvas.width = width;
+    kaleidoscopeCanvas.height = height;
+
+    let mouseX = 250;
+    let mouseY = 250;
+
+    // Drawing setup
+    let drawing = false;
+    drawCanvas.addEventListener('mousedown', e => drawing = true);
+    drawCanvas.addEventListener('mouseup', e => drawing = false);
+    drawCanvas.addEventListener('mouseout', e => drawing = false);
+    drawCanvas.addEventListener('mousemove', e => {
+        const rect = drawCanvas.getBoundingClientRect();
+        const x = e.clientX - rect.left;
+        const y = e.clientY - rect.top;
+
+        mouseX = x;
+        mouseY = y;
+
+        if(drawing){
+            drawCtx.fillStyle = 'rgba(255,255,255,0.2)'; // semi-transparent for trails
+            drawCtx.beginPath();
+            drawCtx.arc(x, y, 5, 0, Math.PI * 2);
+            drawCtx.fill();
+        }
+    });
+
+    // Kaleidoscope variables
+    const slices = 6; // number of mirrored slices
+    let rotation = 0;
+
+    // Kaleidoscope rendering
+    function renderKaleidoscope() {
+        kaleidoscopeCtx.clearRect(0, 0, width, height);
+
+        const cx = width / 2;
+        const cy = height / 2;
+
+        rotation += 0.002; // slow rotation
+
+        for(let i = 0; i < slices; i++){
+            const angle = rotation + (i * 2 * Math.PI) / slices;
+
+            kaleidoscopeCtx.save();
+            kaleidoscopeCtx.translate(cx, cy);
+            kaleidoscopeCtx.rotate(angle);
+
+            // Flip every other slice for symmetry
+            if(i % 2 === 0){
+                kaleidoscopeCtx.scale(1, -1);
+            }
+
+            const offsetX = -mouseX;
+            const offsetY = -mouseY;
+
+            kaleidoscopeCtx.drawImage(drawCanvas, offsetX, offsetY, 500, 500);
+            kaleidoscopeCtx.restore();
+        }
+
+        requestAnimationFrame(renderKaleidoscope);
+    }
+
+    renderKaleidoscope();
+
+    // Resize handling
+    window.addEventListener('resize', () => {
+        width = window.innerWidth;
+        height = window.innerHeight;
+        kaleidoscopeCanvas.width = width;
+        kaleidoscopeCanvas.height = height;
+    });
+</script>
+
+</body>
+</html>
