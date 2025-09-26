@@ -1,0 +1,136 @@
+<!doctype html>
+<html lang="en">
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width,initial-scale=1" />
+    <title>Autonomous Circles with Interactions</title>
+    <style>
+        html,body {
+            height:100%; margin:0;
+            background:#000; /* black background */
+            font-family:sans-serif;
+        }
+        .stage {
+            position:relative;
+            width:min(1100px,94vw);
+            height:70vh;
+            margin:40px auto;
+            background:#000;
+            border-radius:14px;
+            overflow:hidden;
+            border:1px solid rgba(255,255,255,0.2);
+        }
+        .creature {
+            position:absolute;
+            width:12px;
+            height:12px;
+            border-radius:50%;
+            background:#000; /* start black */
+            transition: background 0.4s linear, transform 0.2s ease-out;
+        }
+        .pulse {
+            transform: scale(1.15);
+        }
+    </style>
+</head>
+<body>
+<div class="stage" id="stage"></div>
+
+<script>
+    const stage = document.getElementById('stage');
+    const numCreatures = 50;
+    const creatures = [];
+    const triggerDistance = 40;
+
+    // Colors through yellow spectrum to white
+    const colors = [
+        "#000000", // black
+        "#550000", // dark red
+        "#aa2200", // red/orange
+        "#ff6600", // orange
+        "#ffaa00", // yellow-orange
+        "#ffff00", // yellow
+        "#ffff88", // pale yellow
+        "#ffffff"  // white
+    ];
+
+    // track active interactions between pairs
+    const activePairs = new Set();
+
+    function createCreature(){
+        const el = document.createElement('div');
+        el.className = 'creature';
+        stage.appendChild(el);
+        const r = stage.getBoundingClientRect();
+        return {
+            el,
+            x: Math.random()*r.width,
+            y: Math.random()*r.height,
+            vx: (Math.random()*2-1) * 50,
+            vy: (Math.random()*2-1) * 50,
+            interactions: 0
+        };
+    }
+
+    for (let i=0;i<numCreatures;i++){
+        creatures.push(createCreature());
+    }
+
+    function updateCreature(c,dt){
+        c.x += c.vx*dt;
+        c.y += c.vy*dt;
+        const r = stage.getBoundingClientRect();
+        const radius = 6;
+        if (c.x < radius){ c.x = radius; c.vx = Math.abs(c.vx); }
+        if (c.x > r.width-radius){ c.x = r.width-radius; c.vx = -Math.abs(c.vx); }
+        if (c.y < radius){ c.y = radius; c.vy = Math.abs(c.vy); }
+        if (c.y > r.height-radius){ c.y = r.height-radius; c.vy = -Math.abs(c.vy); }
+        const colorIndex = Math.min(c.interactions, colors.length-1);
+        c.el.style.background = colors[colorIndex];
+        c.el.style.transform = `translate(${c.x-radius}px,${c.y-radius}px) scale(1)`; // base scale
+    }
+
+    function pairKey(i,j){ return i<j ? `${i}-${j}` : `${j}-${i}`; }
+
+    function triggerPulse(c){
+        c.el.classList.add("pulse");
+        setTimeout(()=> c.el.classList.remove("pulse"), 150);
+    }
+
+    function checkInteractions(){
+        for (let i=0; i<creatures.length; i++){
+            for (let j=i+1; j<creatures.length; j++){
+                const a = creatures[i], b = creatures[j];
+                const dx = a.x - b.x;
+                const dy = a.y - b.y;
+                const dist = Math.sqrt(dx*dx + dy*dy);
+                const key = pairKey(i,j);
+                if (dist < triggerDistance){
+                    if (!activePairs.has(key)){
+                        activePairs.add(key);
+                        a.interactions++;
+                        b.interactions++;
+                        triggerPulse(a);
+                        triggerPulse(b);
+                    }
+                } else {
+                    activePairs.delete(key);
+                }
+            }
+        }
+    }
+
+    let last = performance.now();
+    function loop(now){
+        const dt = (now-last)/1000; last = now;
+        for (const c of creatures){
+            updateCreature(c,dt);
+        }
+        checkInteractions();
+        requestAnimationFrame(loop);
+    }
+
+    requestAnimationFrame(loop);
+</script>
+</body>
+</html>
