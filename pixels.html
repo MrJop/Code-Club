@@ -1,0 +1,121 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Pixel Creature Fusion</title>
+    <style>
+        html, body {
+            margin: 0;
+            padding: 0;
+            overflow: hidden;
+            background: black;
+        }
+        canvas {
+            display: block;
+        }
+    </style>
+</head>
+<body>
+<canvas id="world"></canvas>
+<script>
+    const canvas = document.getElementById('world');
+    const ctx = canvas.getContext('2d');
+
+    // Resize canvas to fill viewport
+    function resize() {
+        canvas.width = window.innerWidth;
+        canvas.height = window.innerHeight;
+    }
+    window.addEventListener('resize', resize);
+    resize();
+
+    class Creature {
+        constructor(x, y, size = 1) {
+            this.x = x;
+            this.y = y;
+            this.size = size;
+            this.color = "lime";
+            this.dir = {x: 0, y: 0};
+            this.setRandomDirection();
+            this.lastDirectionChange = performance.now();
+            this.lastMove = performance.now();
+        }
+
+        setRandomDirection() {
+            const dirs = [
+                {x: 1, y: 0}, {x: -1, y: 0},
+                {x: 0, y: 1}, {x: 0, y: -1},
+                {x: 1, y: 1}, {x: -1, y: 1},
+                {x: 1, y: -1}, {x: -1, y: -1},
+                {x: 0, y: 0} // pause
+            ];
+            this.dir = dirs[Math.floor(Math.random() * dirs.length)];
+            this.lastDirectionChange = performance.now();
+        }
+
+        update(now) {
+            // Change direction every 10s
+            if (now - this.lastDirectionChange > 10000) {
+                this.setRandomDirection();
+            }
+
+            // Move every 150ms
+            if (now - this.lastMove > 150) {
+                this.x += this.dir.x;
+                this.y += this.dir.y;
+                this.lastMove = now;
+
+                // Wrap around edges
+                if (this.x < 0) this.x = canvas.width - 1;
+                if (this.x >= canvas.width) this.x = 0;
+                if (this.y < 0) this.y = canvas.height - 1;
+                if (this.y >= canvas.height) this.y = 0;
+            }
+        }
+
+        draw() {
+            ctx.fillStyle = this.color;
+            ctx.fillRect(this.x, this.y, this.size, this.size);
+        }
+    }
+
+    let creatures = [];
+
+    canvas.addEventListener('click', (e) => {
+        const rect = canvas.getBoundingClientRect();
+        const x = Math.floor(e.clientX - rect.left);
+        const y = Math.floor(e.clientY - rect.top);
+        creatures.push(new Creature(x, y));
+    });
+
+    function checkCollisions() {
+        for (let i = 0; i < creatures.length; i++) {
+            for (let j = i + 1; j < creatures.length; j++) {
+                const a = creatures[i];
+                const b = creatures[j];
+                if (a.x === b.x && a.y === b.y) {
+                    // Merge
+                    const merged = new Creature(a.x, a.y, a.size + b.size);
+                    creatures.splice(j, 1);
+                    creatures.splice(i, 1, merged);
+                    return; // restart after merge
+                }
+            }
+        }
+    }
+
+    function loop(now) {
+        ctx.fillStyle = "black";
+        ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+        creatures.forEach(c => c.update(now));
+        checkCollisions();
+        creatures.forEach(c => c.draw());
+
+        requestAnimationFrame(loop);
+    }
+
+    requestAnimationFrame(loop);
+</script>
+</body>
+</html>
