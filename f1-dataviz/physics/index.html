@@ -1,0 +1,174 @@
+<!doctype html>
+<html lang="en">
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width,initial-scale=1" />
+    <title>Matter.js — First Demo</title>
+    <!-- Matter.js from unpkg (latest build) -->
+    <script src="https://unpkg.com/matter-js/build/matter.min.js"></script>
+    <style>
+        :root{font-family:Inter, ui-sans-serif, system-ui, -apple-system, 'Segoe UI', Roboto, 'Helvetica Neue', Arial;}
+        html,body{height:100%;margin:0;background:#0f172a;color:#0f172a}
+        header{height:72px;display:flex;align-items:center;gap:16px;padding:12px 20px;background:linear-gradient(90deg,#f8fafc, #eef2ff);box-shadow:0 6px 18px rgba(2,6,23,0.08)}
+        h1{font-size:18px;margin:0;color:#0f172a}
+        .controls{margin-left:auto;display:flex;gap:10px;align-items:center}
+        button{background:#111827;color:white;border:none;padding:8px 12px;border-radius:10px;cursor:pointer;font-weight:600}
+        button.secondary{background:#334155}
+        label{font-size:13px;color:#0f172a}
+        #scene{width:100%;height:calc(100% - 72px);display:block}
+        .hint{position:fixed;left:18px;bottom:18px;background:linear-gradient(180deg,#ffffffcc,#f8fafcaa);padding:10px 14px;border-radius:10px;box-shadow:0 6px 20px rgba(2,6,23,0.08);font-size:13px}
+        .small{font-size:12px;color:#374151}
+    </style>
+</head>
+<body>
+<header>
+    <h1>Matter.js — Play & fling</h1>
+    <div class="controls">
+        <button id="add">➕ Add block</button>
+        <button id="reset" class="secondary">♻ Reset</button>
+        <label class="small">Gravity <input id="grav" type="range" min="-1" max="2" step="0.05" value="1" style="vertical-align:middle"></label>
+    </div>
+</header>
+
+<!-- Scene container — Matter.Render will append the canvas here -->
+<main id="scene"></main>
+
+<div class="hint">Drag blocks with mouse (or touch). Fling by dragging quickly and releasing. Click <strong>Add block</strong> to spawn more.</div>
+
+<script>
+    // Single-file Matter.js demo — small, commented and ready to play with.
+    const { Engine, Render, Runner, Bodies, Composite, Mouse, MouseConstraint, Body } = Matter;
+
+    // 1) Create engine and adjust gravity
+    const engine = Engine.create();
+    engine.world.gravity.y = 1; // tweak with the gravity slider in the UI
+
+    // 2) Create renderer and append to #scene
+    const scene = document.getElementById('scene');
+    function getSize(){ return { w: window.innerWidth, h: Math.max(300, window.innerHeight - 72) }; }
+    const size = getSize();
+
+    const render = Render.create({
+        element: scene,
+        engine: engine,
+        options: {
+            width: size.w,
+            height: size.h,
+            wireframes: false,
+            background: '#f8fafc',
+            pixelRatio: window.devicePixelRatio || 1
+        }
+    });
+    Render.run(render);
+
+    // 3) Runner
+    const runner = Runner.create();
+    Runner.run(runner, engine);
+
+    // 4) Static boundaries (floor + walls)
+    const createWalls = (w, h) => {
+        const thickness = 60;
+        return [
+            Bodies.rectangle(w/2, h + thickness/2, w, thickness, { isStatic: true, render: { fillStyle: '#0b1220' } }), // floor
+            Bodies.rectangle(w/2, -thickness/2, w, thickness, { isStatic: true, render: { fillStyle: '#0b1220' } }), // ceiling
+            Bodies.rectangle(-thickness/2, h/2, thickness, h, { isStatic: true, render: { fillStyle: '#0b1220' } }), // left
+            Bodies.rectangle(w + thickness/2, h/2, thickness, h, { isStatic: true, render: { fillStyle: '#0b1220' } })  // right
+        ];
+    };
+
+    let walls = createWalls(size.w, size.h);
+    Composite.add(engine.world, walls);
+
+    // 5) Two starter blocks
+    const boxA = Bodies.rectangle(320, 120, 120, 80, { restitution: 0.38, render: { fillStyle: '#ef4444' } });
+    const boxB = Bodies.rectangle(460, 60, 90, 90, { restitution: 0.55, render: { fillStyle: '#60a5fa' } });
+    Composite.add(engine.world, [boxA, boxB]);
+
+    // 6) Mouse control for drag & fling
+    const mouse = Mouse.create(render.canvas);
+    const mouseConstraint = MouseConstraint.create(engine, {
+        mouse: mouse,
+        constraint: { stiffness: 0.22, render: { visible: false } }
+    });
+    Composite.add(engine.world, mouseConstraint);
+    render.mouse = mouse; // keep renderer's mouse in sync
+
+    // We'll track two recent mouse positions to approximate fling velocity on release:
+    let prevMousePos = { x: mouse.position.x, y: mouse.position.y };
+    let lastMousePos = { x: mouse.position.x, y: mouse.position.y };
+
+    render.canvas.addEventListener('mousemove', () => {
+        prevMousePos = { ...lastMousePos };
+        lastMousePos = { x: mouse.position.x, y: mouse.position.y };
+    });
+
+    // touch support — update positions on touchmove
+    render.canvas.addEventListener('touchmove', () => {
+        prevMousePos = { ...lastMousePos };
+        lastMousePos = { x: mouse.position.x, y: mouse.position.y };
+    });
+
+    render.canvas.addEventListener('mouseup', () => {
+        if (mouseConstraint.body) {
+            const body = mouseConstraint.body;
+            // delta between last two recorded positions
+            const dx = lastMousePos.x - prevMousePos.x;
+            const dy = lastMousePos.y - prevMousePos.y;
+            const scale = 0.35; // change for stronger/weaker fling
+            // set velocity directly for a crisp 'throw' feeling
+            Body.setVelocity(body, { x: dx * scale, y: dy * scale });
+        }
+    });
+
+    // 7) Utility: spawn a block at x,y (or random if not provided)
+    function addBlock(x = null, y = -40) {
+        const w = 40 + Math.round(Math.random() * 80);
+        const h = 40 + Math.round(Math.random() * 80);
+        const palette = ['#10b981','#f59e0b','#ef4444','#60a5fa','#a78bfa'];
+        const color = palette[Math.floor(Math.random() * palette.length)];
+        const posX = (x && !isNaN(x)) ? x : 80 + Math.random() * (render.options.width - 160);
+        const b = Bodies.rectangle(posX, y, w, h, {
+            restitution: 0.25,
+            friction: 0.05,
+            density: 0.002 * (w * h / 4000),
+            render: { fillStyle: color, strokeStyle: '#0f172a', lineWidth: 2 }
+        });
+        Composite.add(engine.world, b);
+        return b;
+    }
+
+    // Hook up UI
+    document.getElementById('add').addEventListener('click', () => addBlock(mouse.position.x, mouse.position.y - 20));
+    document.getElementById('reset').addEventListener('click', () => {
+        // remove all non-static bodies, then re-add two starter blocks
+        Composite.allBodies(engine.world).slice().forEach(b => { if (!b.isStatic) Composite.remove(engine.world, b); });
+        Composite.add(engine.world, [boxA, boxB]);
+    });
+
+    document.getElementById('grav').addEventListener('input', (e) => {
+        engine.world.gravity.y = parseFloat(e.target.value);
+    });
+
+    // 8) Responsive resize
+    window.addEventListener('resize', () => {
+        const s = getSize();
+        render.canvas.width = s.w;
+        render.canvas.height = s.h;
+        render.options.width = s.w;
+        render.options.height = s.h;
+        // move walls to the new positions
+        Matter.Body.setPosition(walls[0], { x: s.w/2, y: s.h + 30 });
+        Matter.Body.setPosition(walls[1], { x: s.w/2, y: -30 });
+        Matter.Body.setPosition(walls[2], { x: -30, y: s.h/2 });
+        Matter.Body.setPosition(walls[3], { x: s.w + 30, y: s.h/2 });
+    });
+
+    // spawn a little stack to start with
+    for (let i = 0; i < 3; i++) addBlock(300 + i * 60, 50 - i * 40);
+
+    // Optional: debug info
+    // Uncomment to print engine timing to the console:
+    // setInterval(()=>console.log(engine.timing.timestamp),1000);
+</script>
+</body>
+</html>
