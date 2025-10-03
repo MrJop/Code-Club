@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <title>Webcam Clip Grid</title>
+    <title>Webcam Clip Grid Live Preview</title>
     <style>
         html, body {
             margin: 0;
@@ -18,10 +18,10 @@
             width: 100vw;
             height: 100vh;
         }
-        #grid video {
+        canvas {
             width: 100%;
             height: 100%;
-            object-fit: cover;
+            display: block;
         }
     </style>
 </head>
@@ -33,53 +33,104 @@
     video.autoplay = true;
     video.playsInline = true;
 
+    const grid = document.getElementById('grid');
+    const maxClips = 24;
+    const canvasEls = [];
+    const clipVideos = [];
+    let currentIndex = 0;
+
+    // create 24 canvas elements
+    for (let i = 0; i < maxClips; i++) {
+        const canvas = document.createElement('canvas');
+        grid.appendChild(canvas);
+        canvasEls.push(canvas);
+        clipVideos.push(null);
+    }
+
     navigator.mediaDevices.getUserMedia({ video: true, audio: false })
         .then(stream => {
             video.srcObject = stream;
             video.addEventListener("loadedmetadata", () => {
                 startRecordingLoop(stream);
+                drawLoop();
             });
         })
         .catch(err => console.error("Webcam access denied:", err));
 
-    // --- Grid of looping clips ---
-    const grid = document.getElementById('grid');
-    const maxClips = 24; // 6 x 4
-    const clipEls = [];
-    let currentIndex = 0;
+    function drawLoop() {
+        for (let i = 0; i < maxClips; i++) {
+            const canvas = canvasEls[i];
+            const ctx = canvas.getContext('2d');
 
-    for (let i = 0; i < maxClips; i++) {
-        const vid = document.createElement('video');
-        vid.autoplay = true;
-        vid.loop = true;
-        vid.muted = true;
-        grid.appendChild(vid);
-        clipEls.push(vid);
+            if (canvas.width !== canvas.clientWidth || canvas.height !== canvas.clientHeight) {
+                canvas.width = canvas.clientWidth;
+                canvas.height = canvas.clientHeight;
+            }
+
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+            if (i === currentIndex) {
+                drawVideoOnCanvas(video, ctx, canvas); // live feed
+            } else if (clipVideos[i]) {
+                // draw recorded video frame
+                drawVideoOnCanvas(clipVideos[i], ctx, canvas);
+            }
+        }
+
+        requestAnimationFrame(drawLoop);
+    }
+
+    function drawVideoOnCanvas(srcVideo, ctx, canvas) {
+        const cw = canvas.width;
+        const ch = canvas.height;
+        const vw = srcVideo.videoWidth;
+        const vh = srcVideo.videoHeight;
+
+        if (vw && vh) {
+            const scale = Math.max(cw / vw, ch / vh);
+            const scaledWidth = vw * scale;
+            const scaledHeight = vh * scale;
+            const x = (cw - scaledWidth) / 2;
+            const y = (ch - scaledHeight) / 2;
+
+            ctx.save();
+            ctx.scale(-1, 1);
+            ctx.drawImage(srcVideo, -x - scaledWidth, y, scaledWidth, scaledHeight);
+            ctx.restore();
+        }
     }
 
     function startRecordingLoop(stream) {
-        const recorder = new MediaRecorder(stream, { mimeType: 'video/webm; codecs=vp9' });
-        let chunks = [];
+        function recordNext() {
+            const recorder = new MediaRecorder(stream, { mimeType: 'video/webm; codecs=vp9' });
+            let chunks = [];
 
-        recorder.ondataavailable = e => {
-            if (e.data.size > 0) chunks.push(e.data);
-        };
+            recorder.ondataavailable = e => {
+                if (e.data.size > 0) chunks.push(e.data);
+            };
 
-        recorder.onstop = () => {
-            const blob = new Blob(chunks, { type: 'video/webm' });
-            const url = URL.createObjectURL(blob);
+            recorder.onstop = () => {
+                const blob = new Blob(chunks, { type: 'video/webm' });
+                const url = URL.createObjectURL(blob);
 
-            // put clip into current grid slot
-            clipEls[currentIndex].src = url;
-            currentIndex = (currentIndex + 1) % maxClips;
+                const vid = document.createElement('video');
+                vid.src = url;
+                vid.autoplay = true;
+                vid.loop = true;
+                vid.muted = true;
+                vid.play(); // ensure it starts playing
+                clipVideos[currentIndex] = vid;
 
-            chunks = [];
+                currentIndex = (currentIndex + 1) % maxClips;
+                chunks = [];
+                setTimeout(recordNext, 0);
+            };
+
             recorder.start();
-            setTimeout(() => recorder.stop(), 2000); // stop after 2s
-        };
+            setTimeout(() => recorder.stop(), 2000);
+        }
 
-        recorder.start();
-        setTimeout(() => recorder.stop(), 2000);
+        recordNext();
     }
 </script>
 </body>
