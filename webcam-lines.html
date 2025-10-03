@@ -1,0 +1,90 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Slit-Scan Temporal Image</title>
+    <style>
+        html, body {
+            margin: 0;
+            padding: 0;
+            overflow: hidden;
+            background: black;
+            height: 100%;
+        }
+        canvas {
+            display: block;
+            width: 100vw;
+            height: 100vh;
+        }
+    </style>
+</head>
+<body>
+<canvas id="slit"></canvas>
+<script>
+    const canvas = document.getElementById("slit");
+    const ctx = canvas.getContext("2d");
+    const video = document.createElement("video");
+    video.autoplay = true;
+    video.playsInline = true;
+
+    function resize() {
+        canvas.width = window.innerWidth;
+        canvas.height = window.innerHeight;
+    }
+    window.addEventListener("resize", resize);
+    resize();
+
+    const FRAME_COUNT = 100;
+    const STRIP_HEIGHT = Math.floor(window.innerHeight / FRAME_COUNT);
+    const frameBuffer = new Array(FRAME_COUNT).fill(null);
+    let frameIndex = 0;
+
+    navigator.mediaDevices.getUserMedia({ video: true, audio: false })
+        .then(stream => {
+            video.srcObject = stream;
+            video.addEventListener("loadedmetadata", () => {
+                animate();
+            });
+        })
+        .catch(err => console.error("Webcam access denied:", err));
+
+    function captureStrip(rowIndex) {
+        const tempCanvas = document.createElement("canvas");
+        const tempCtx = tempCanvas.getContext("2d");
+
+        tempCanvas.width = canvas.width;
+        tempCanvas.height = STRIP_HEIGHT;
+
+        // Draw the webcam scaled to canvas size
+        tempCtx.save();
+        tempCtx.scale(-1, 1); // mirror
+        tempCtx.drawImage(video, -canvas.width, 0, canvas.width, canvas.height);
+        tempCtx.restore();
+
+        // Extract the slice for this row
+        const y = rowIndex * STRIP_HEIGHT;
+        const strip = tempCtx.getImageData(0, 0, canvas.width, STRIP_HEIGHT);
+        frameBuffer[rowIndex] = strip;
+    }
+
+    function animate() {
+        if (video.videoWidth > 0) {
+            // update one strip per frame
+            captureStrip(frameIndex);
+
+            // redraw full canvas from buffer
+            for (let i = 0; i < FRAME_COUNT; i++) {
+                const strip = frameBuffer[i];
+                if (strip) {
+                    ctx.putImageData(strip, 0, i * STRIP_HEIGHT);
+                }
+            }
+
+            frameIndex = (frameIndex + 1) % FRAME_COUNT;
+        }
+
+        requestAnimationFrame(animate);
+    }
+</script>
+</body>
+</html>
