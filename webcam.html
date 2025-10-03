@@ -1,0 +1,74 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Webcam Mirror</title>
+    <style>
+        html, body {
+            margin: 0;
+            padding: 0;
+            overflow: hidden;
+            height: 100%;
+            background: black;
+        }
+        canvas {
+            display: block;
+            width: 100vw;
+            height: 100vh;
+        }
+    </style>
+</head>
+<body>
+<canvas id="webcam"></canvas>
+<script>
+    const canvas = document.getElementById('webcam');
+    const ctx = canvas.getContext('2d');
+    const video = document.createElement('video');
+    video.autoplay = true;
+    video.playsInline = true;
+
+    function resize() {
+        canvas.width = window.innerWidth;
+        canvas.height = window.innerHeight;
+    }
+    window.addEventListener('resize', resize);
+    resize();
+
+    navigator.mediaDevices.getUserMedia({ video: true, audio: false })
+        .then(stream => {
+            video.srcObject = stream;
+            video.addEventListener("loadedmetadata", () => {
+                requestAnimationFrame(draw);
+            });
+        })
+        .catch(err => {
+            console.error("Webcam access denied:", err);
+        });
+
+    function draw() {
+        const cw = canvas.width;
+        const ch = canvas.height;
+        const vw = video.videoWidth;
+        const vh = video.videoHeight;
+
+        if (vw && vh) {
+            // calculate scale to "cover" canvas while preserving aspect ratio
+            const scale = Math.max(cw / vw, ch / vh);
+            const scaledWidth = vw * scale;
+            const scaledHeight = vh * scale;
+
+            // center the video in the canvas
+            const x = (cw - scaledWidth) / 2;
+            const y = (ch - scaledHeight) / 2;
+
+            ctx.save();
+            ctx.scale(-1, 1); // mirror horizontally
+            ctx.drawImage(video, -x - scaledWidth, y, scaledWidth, scaledHeight);
+            ctx.restore();
+        }
+
+        requestAnimationFrame(draw);
+    }
+</script>
+</body>
+</html>
