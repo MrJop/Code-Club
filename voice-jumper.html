@@ -1,0 +1,132 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Sound Jump Game</title>
+    <style>
+        body {
+            margin: 0;
+            background: #87ceeb;
+            overflow: hidden;
+            font-family: sans-serif;
+        }
+        canvas {
+            display: block;
+            background: linear-gradient(#87ceeb 80%, #228b22 20%);
+        }
+        #msg {
+            position: absolute;
+            top: 10px;
+            left: 10px;
+            background: rgba(255,255,255,0.8);
+            padding: 8px 12px;
+            border-radius: 8px;
+        }
+    </style>
+</head>
+<body>
+<canvas id="game"></canvas>
+<div id="msg">🎤 Make a loud noise to jump!</div>
+<script>
+    const canvas = document.getElementById("game");
+    const ctx = canvas.getContext("2d");
+    canvas.width = innerWidth;
+    canvas.height = innerHeight;
+
+    let player = {
+        x: 100,
+        y: canvas.height - 150,
+        width: 50,
+        height: 50,
+        vy: 0,
+        onGround: true
+    };
+
+    let gravity = 0.8;
+    let jumpPower = -18;
+    let obstacles = [];
+    let frame = 0;
+    let speed = 6;
+
+    // Generate obstacles
+    function spawnObstacle() {
+        const height = 60 + Math.random() * 40;
+        obstacles.push({
+            x: canvas.width,
+            y: canvas.height - height - 100,
+            width: 40,
+            height
+        });
+    }
+
+    // Game loop
+    function loop() {
+        requestAnimationFrame(loop);
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+        // Player physics
+        player.y += player.vy;
+        player.vy += gravity;
+        if (player.y >= canvas.height - 150) {
+            player.y = canvas.height - 150;
+            player.vy = 0;
+            player.onGround = true;
+        }
+
+        // Draw player
+        ctx.fillStyle = "#ff4500";
+        ctx.fillRect(player.x, player.y - player.height, player.width, player.height);
+
+        // Obstacles
+        if (frame % 120 === 0) spawnObstacle();
+        obstacles.forEach(o => o.x -= speed);
+        obstacles = obstacles.filter(o => o.x + o.width > 0);
+
+        ctx.fillStyle = "#222";
+        for (let o of obstacles) {
+            ctx.fillRect(o.x, o.y, o.width, o.height);
+            // Collision
+            if (
+                player.x < o.x + o.width &&
+                player.x + player.width > o.x &&
+                player.y > o.y - player.height
+            ) {
+                ctx.fillStyle = "rgba(255,0,0,0.6)";
+                ctx.fillRect(0, 0, canvas.width, canvas.height);
+            }
+        }
+
+        frame++;
+    }
+    loop();
+
+    // Microphone setup
+    async function setupMic() {
+        try {
+            const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+            const audioCtx = new AudioContext();
+            const source = audioCtx.createMediaStreamSource(stream);
+            const analyser = audioCtx.createAnalyser();
+            analyser.fftSize = 256;
+            source.connect(analyser);
+            const dataArray = new Uint8Array(analyser.frequencyBinCount);
+
+            function detectVolume() {
+                analyser.getByteFrequencyData(dataArray);
+                let avg = dataArray.reduce((a, b) => a + b) / dataArray.length;
+                if (avg > 60 && player.onGround) {
+                    player.vy = jumpPower;
+                    player.onGround = false;
+                }
+                requestAnimationFrame(detectVolume);
+            }
+            detectVolume();
+        } catch (err) {
+            document.getElementById("msg").textContent = "🎤 Microphone access denied!";
+        }
+    }
+    setupMic();
+</script>
+</body>
+</html>

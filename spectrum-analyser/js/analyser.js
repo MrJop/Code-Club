@@ -26,7 +26,7 @@ function playAudio(url) {
 
     source = audioCtx.createMediaElementSource(audio);
     analyser = audioCtx.createAnalyser();
-    analyser.fftSize = 64; // smaller = fewer bars, smoother animation
+    analyser.fftSize = 256; // smaller = fewer bars, smoother animation
     bufferLength = analyser.frequencyBinCount;
     dataArray = new Uint8Array(bufferLength);
 
