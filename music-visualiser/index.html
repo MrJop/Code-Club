@@ -1,0 +1,17 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <title>Music Visualizer</title>
+    <style>
+        body { margin: 0; background: black; overflow: hidden; }
+        #fileInput { position: absolute; top: 10px; left: 10px; z-index: 10; }
+    </style>
+</head>
+<body>
+<input type="file" id="fileInput" accept="audio/*">
+<canvas id="canvas"></canvas>
+
+<script src="visualiser.js"></script>
+</body>
+</html>
